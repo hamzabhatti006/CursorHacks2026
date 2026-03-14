@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "TabMind",
+  "version": "1.0.0",
+  "description": "Focus shield: detect distraction, clear noise, one clear next step.",
+  "permissions": ["tabs", "storage", "notifications", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "TabMind"
+  }
+}

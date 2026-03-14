@@ -1,0 +1,14 @@
+{
+  "distractionScore": 0,
+  "focusLabel": "low",
+  "inferredGoal": "",
+  "shieldModeActive": false,
+  "quest": {
+    "questTitle": "",
+    "questDescription": "",
+    "missions": [],
+    "rationale": "",
+    "estimatedFocusMinutes": 0
+  },
+  "lastNotificationAt": 0
+}
