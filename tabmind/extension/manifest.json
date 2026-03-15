@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Focus shield: detect distraction, clear noise, one clear next step.",
   "permissions": ["tabs", "storage", "notifications", "alarms"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": ["<all_urls>", "http://localhost:8000/*"],
   "background": { "service_worker": "background.js" },
   "action": {
     "default_popup": "popup/popup.html",

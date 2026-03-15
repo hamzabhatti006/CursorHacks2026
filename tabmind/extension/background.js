@@ -32,10 +32,12 @@
 
 "use strict";
 
+importScripts("storage.js", "blocker.js", "notifications.js");
+
 const DISTRACTION_THRESHOLD = 12;
 const SWITCH_WINDOW_MS = 60 * 1000;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
-const BACKEND_BASE_URL = "http://localhost:3000";
+const BACKEND_BASE_URL = "http://localhost:8000";
 
 const recordRecentSwitch = async () => {
   const state = await getState();
@@ -129,12 +131,10 @@ const requestQuestFromBackend = async (tabs) => {
     tabs: tabs.map((tab) => ({
       title: tab?.title ?? "",
       url: normalizeUrl(tab?.url),
-      hostname: safeHostnameFromUrl(tab?.url),
-      category: classifyTab(tab).category,
     })),
   };
 
-  const response = await fetch(`${BACKEND_BASE_URL}/api/quest`, {
+  const response = await fetch(`${BACKEND_BASE_URL}/generate-quest`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -146,7 +146,21 @@ const requestQuestFromBackend = async (tabs) => {
     throw new Error(`backend error: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return {
+    goal: data.goal ?? "Get back to your main task",
+    quest: {
+      title: data.quest_title ?? "Refocus",
+      summary: data.description ?? "A short path back into the task.",
+      missions: Array.isArray(data.missions) ? data.missions : [
+        "Open the main work tab",
+        "Identify the next concrete step",
+        "Work on it for 10 minutes",
+      ],
+      rationale: data.rationale ?? "",
+      estimated_minutes: data.estimated_minutes ?? 10,
+    },
+  };
 };
 
 const activateShieldMode = async () => {
