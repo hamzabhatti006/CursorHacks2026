@@ -25,111 +25,143 @@
 
 .tabmind-shield-prompt-box {
   position: relative;
-  max-width: 360px;
-  padding: 24px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 22px 20px 18px;
   margin: 16px;
-  background: #1c1914;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  background: rgba(252, 249, 245, 0.98);
+  border: 1px solid rgba(36, 27, 20, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+}
+
+.tabmind-shield-prompt-kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7d6756;
+  text-align: center;
 }
 
 .tabmind-shield-prompt-title {
-  margin: 0 0 20px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #f6f0e8;
+  margin: 0 0 18px;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #241b14;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.18;
 }
 
 .tabmind-shield-prompt-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tabmind-shield-prompt-btn {
-  padding: 12px 16px;
+  padding: 13px 16px;
   font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px;
+  font-weight: 700;
+  border-radius: 12px;
   cursor: pointer;
   border: none;
-  transition: opacity 0.15s;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .tabmind-shield-prompt-btn:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 .tabmind-shield-prompt-accept {
-  background: linear-gradient(135deg, #f0a249, #e68c32);
-  color: #22180f;
+  background: linear-gradient(180deg, #5dd36c, #43bd56);
+  color: #f7fff8;
 }
 
 .tabmind-shield-prompt-dismiss {
-  background: rgba(255, 255, 255, 0.1);
-  color: #c1b5a3;
+  background: linear-gradient(180deg, #ff655d, #ff544c);
+  color: #fff7f7;
 }
 
-.tabmind-launcher {
+.tabmind-shield-control {
   position: fixed;
-  top: 34vh;
-  right: 0;
-  width: 92px;
-  height: 132px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-right: 0;
-  border-radius: 24px 0 0 24px;
-  background: rgba(31, 27, 23, 0.97);
-  box-shadow: 0 24px 44px rgba(0, 0, 0, 0.32);
+  right: 22px;
+  bottom: 22px;
+  width: 82px;
+  height: 82px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   display: none;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.16s ease;
 }
 
-.tabmind-launcher.visible {
+.tabmind-shield-control.visible {
   display: flex;
 }
 
-.tabmind-launcher:hover {
-  transform: translateX(-6px);
-  box-shadow: 0 28px 50px rgba(0, 0, 0, 0.38);
+.tabmind-shield-control:hover {
+  transform: translateY(-2px);
 }
 
-.tabmind-launcher img {
-  width: 60px;
-  height: 60px;
+.tabmind-shield-control-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 188, 104, 0.2), transparent 58%),
+    linear-gradient(135deg, rgba(255, 188, 104, 0.32), rgba(255, 188, 104, 0.02));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 18px 36px rgba(0, 0, 0, 0.28);
+}
+
+.tabmind-shield-control-core {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 999px;
+  background: rgba(29, 24, 20, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.tabmind-shield-control img {
+  width: 34px;
+  height: 34px;
   object-fit: contain;
 }
 
-.tabmind-side-panel {
+.tabmind-goals-card {
   position: fixed;
-  top: 16px;
-  right: 16px;
-  width: min(420px, calc(100vw - 32px));
-  height: min(760px, calc(100vh - 32px));
+  right: 22px;
+  bottom: 118px;
+  width: min(396px, calc(100vw - 32px));
+  height: min(640px, calc(100vh - 148px));
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 28px;
+  border-radius: 26px;
   overflow: hidden;
   background: rgba(20, 17, 13, 0.98);
   box-shadow: 0 30px 54px rgba(0, 0, 0, 0.42);
   pointer-events: auto;
-  transform: translateX(calc(100% + 32px));
+  transform: translateY(18px);
   opacity: 0;
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-.tabmind-side-panel.open {
-  transform: translateX(0);
+.tabmind-goals-card.open {
+  transform: translateY(0);
   opacity: 1;
 }
 
-.tabmind-side-panel-close {
+.tabmind-goals-card-close {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -145,7 +177,7 @@
   z-index: 2;
 }
 
-.tabmind-side-panel-frame {
+.tabmind-goals-card-frame {
   width: 100%;
   height: 100%;
   border: 0;

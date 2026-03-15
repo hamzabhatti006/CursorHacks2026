@@ -323,6 +323,28 @@
     };
   };
 
+  const buildFollowUpState = (previousState) => {
+    const baseState = normalizeState(previousState);
+    const inferredGoal = baseState.inferredGoal || 'Keep moving the strongest work thread in your current tabs.';
+
+    return {
+      ...baseState,
+      shieldModeActive: true,
+      inferredGoal,
+      quest: {
+        questTitle: 'Keep the next step narrow',
+        questDescription: 'Use this follow-up checklist to keep momentum without reopening distractions.',
+        missions: [
+          { text: 'Choose the next unfinished section, answer, or code change.', done: false },
+          { text: 'Stay on that one step until it is clearly better than it was before.', done: false },
+          { text: 'Only open a new tab if it directly unblocks the current task.', done: false }
+        ],
+        rationale: 'Fallback follow-up plan used because a fresh quest did not come back cleanly.',
+        estimatedFocusMinutes: 10
+      }
+    };
+  };
+
   const renderMissions = (missions) => {
     ui.missionsList.innerHTML = '';
 
@@ -472,9 +494,17 @@
           await writeStoredState(extracted);
           renderState(extracted);
           setStatus('Next set of goals loaded.', 'success');
+        } else {
+          const followUpState = buildFollowUpState(currentState);
+          await writeStoredState(followUpState);
+          renderState(followUpState);
+          setStatus('Loaded a fallback next-step set.', 'warning');
         }
       } catch (err) {
-        setStatus('Could not load next steps. Try activating Shield again.', 'warning');
+        const followUpState = buildFollowUpState(currentState);
+        await writeStoredState(followUpState);
+        renderState(followUpState);
+        setStatus('Loaded a fallback next-step set.', 'warning');
       }
       setButtonBusy(false);
     }

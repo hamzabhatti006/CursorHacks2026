@@ -38,6 +38,8 @@ const DISTRACTION_THRESHOLD = 8;
 const DECAY_INTERVAL_MS = 15 * 1000;
 const DECAY_AMOUNT = 1;
 const SWITCH_WINDOW_MS = 60 * 1000;
+const FAST_SWITCH_WINDOW_MS = 12 * 1000;
+const FAST_SWITCH_PROMPT_COUNT = 4;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
 const BACKEND_BASE_URL = "http://localhost:8000";
 
@@ -54,20 +56,39 @@ const recordRecentSwitch = async () => {
   return recentSwitches;
 };
 
+const countSwitchesInWindow = (timestamps, windowMs, now = Date.now()) => {
+  const cutoff = now - windowMs;
+  return timestamps.filter((timestamp) => timestamp >= cutoff).length;
+};
+
 const calculateScoreDelta = ({
   isDistraction,
+  fastSwitchCount,
   recentSwitchCount,
   openTabCount,
 }) => {
   let delta = 1; // every tab switch adds at least 1 (rapid switching = higher score)
 
-  if (recentSwitchCount >= 4) delta += 2;
-  if (recentSwitchCount >= 8) delta += 2;
+  if (recentSwitchCount >= 3) delta += 1;
+  if (recentSwitchCount >= 5) delta += 2;
+  if (fastSwitchCount >= 3) delta += 2;
+  if (fastSwitchCount >= 5) delta += 2;
   if (isDistraction) delta += 4;
   if (openTabCount >= 10) delta += 1;
   if (openTabCount >= 15) delta += 1;
 
   return delta;
+};
+
+const shouldOfferShield = ({
+  distractionScore,
+  fastSwitchCount,
+  isDistraction,
+}) => {
+  if (distractionScore >= DISTRACTION_THRESHOLD) return true;
+  if (fastSwitchCount >= FAST_SWITCH_PROMPT_COUNT) return true;
+  if (isDistraction && fastSwitchCount >= 3) return true;
+  return false;
 };
 
 const decayScore = async () => {
@@ -91,13 +112,17 @@ const decayScore = async () => {
 };
 
 const trackTabSwitch = async (activeInfo) => {
-  const activeTab = await chrome.tabs.get(activeInfo.tabId);
+  const activeTab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
+  if (!activeTab) return;
+
   const recentSwitches = await recordRecentSwitch();
+  const fastSwitchCount = countSwitchesInWindow(recentSwitches, FAST_SWITCH_WINDOW_MS);
   const allTabs = await chrome.tabs.query({});
 
   const isDistraction = isDistractionUrl(activeTab.url);
   const scoreDelta = calculateScoreDelta({
     isDistraction,
+    fastSwitchCount,
     recentSwitchCount: recentSwitches.length,
     openTabCount: allTabs.length,
   });
@@ -112,9 +137,17 @@ const trackTabSwitch = async (activeInfo) => {
 
   const nextState = await getState();
 
-  if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
-    await showNudge();
-    await sendShieldPromptToActiveTab();
+  if (
+    shouldOfferShield({
+      distractionScore: nextState.distractionScore,
+      fastSwitchCount,
+      isDistraction,
+    })
+  ) {
+    const promptShown = await sendShieldPromptToActiveTab();
+    if (!promptShown) {
+      await showNudge();
+    }
   }
 };
 
@@ -123,27 +156,29 @@ let lastShieldPromptSentAt = 0;
 
 const sendShieldPromptToActiveTab = async () => {
   const now = Date.now();
-  if (now - lastShieldPromptSentAt < PROMPT_COOLDOWN_MS) return;
+  if (now - lastShieldPromptSentAt < PROMPT_COOLDOWN_MS) return true;
   lastShieldPromptSentAt = now;
   try {
     const win = await chrome.windows.getLastFocused();
-    if (!win?.id) return;
+    if (!win?.id) return false;
     const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
     const tab = tabs[0];
-    if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: "SHOW_SHIELD_PROMPT" });
+    if (!tab?.id) return false;
+    await chrome.tabs.sendMessage(tab.id, { type: "SHOW_SHIELD_PROMPT" });
+    return true;
   } catch (e) {
-    /* tab may not have content script ready or not injectable */
+    return false;
   }
 };
 
-const showShieldPanelOnWindow = async (windowId) => {
+const showShieldControlOnWindow = async (windowId) => {
   if (!windowId) return false;
   try {
     const tabs = await chrome.tabs.query({ active: true, windowId });
     const activeTab = tabs[0];
     if (!activeTab?.id) return false;
 
-    await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_SHIELD_PANEL" });
+    await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_SHIELD_CONTROL" });
     return true;
   } catch (e) {
     return false;
@@ -169,8 +204,10 @@ const trackTabUpdate = async (tabId, changeInfo, tab) => {
 
   const nextState = await getState();
   if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
-    await showNudge();
-    await sendShieldPromptToActiveTab();
+    const promptShown = await sendShieldPromptToActiveTab();
+    if (!promptShown) {
+      await showNudge();
+    }
   }
 };
 
@@ -209,6 +246,62 @@ const requestQuestFromBackend = async (tabs) => {
       estimated_minutes: data.estimated_minutes ?? 10,
     },
   };
+};
+
+const buildQuestFromNextSteps = (payload, lastGoal) => {
+  const missions = (Array.isArray(payload?.next_steps) ? payload.next_steps : payload?.missions)
+    ?.map((step) => String(step || "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  return {
+    title:
+      payload?.quest_title ||
+      payload?.title ||
+      "Keep the current work moving",
+    summary:
+      payload?.description ||
+      payload?.summary ||
+      "Use the next few concrete steps to keep momentum without reopening distractions.",
+    missions:
+      missions && missions.length
+        ? missions
+        : [
+            "Re-open the main work tab only if you need it",
+            "Pick the next concrete change to make",
+            "Stay on that task for 10 minutes",
+          ],
+    rationale:
+      payload?.rationale ||
+      "Generated from your remaining work tabs after finishing the previous checklist.",
+    estimated_minutes: Number(payload?.estimated_minutes) > 0 ? Number(payload.estimated_minutes) : 10,
+    goal: payload?.goal || lastGoal || "Continue your current task",
+  };
+};
+
+const requestNextStepsFromBackend = async (tabs, lastGoal) => {
+  const payload = {
+    tabs: tabs.map((tab) => ({
+      title: tab?.title ?? "",
+      url: normalizeUrl(tab?.url),
+    })),
+    inferred_goal: lastGoal || undefined,
+  };
+
+  const response = await fetch(`${BACKEND_BASE_URL}/next-steps`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`backend error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return buildQuestFromNextSteps(data, lastGoal);
 };
 
 const activateShieldMode = async () => {
@@ -287,7 +380,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "ACTIVATE_SHIELD": {
           const result = await activateShieldMode();
-          await showShieldPanelOnWindow(senderWindowId);
+          await showShieldControlOnWindow(senderWindowId);
           sendResponse(result);
           break;
         }
@@ -300,22 +393,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "REQUEST_NEXT_QUEST": {
           const tabs = await chrome.tabs.query({});
+          const previousState = await getState();
           let goal = "Continue with your task";
           let quest = {
-            title: "Next steps",
-            summary: "Your next set of actions.",
+            title: "Keep the current work moving",
+            summary: "Your next set of focused actions.",
             missions: [
               "Open the main work tab",
               "Identify the next concrete step",
               "Work on it for 10 minutes",
             ],
+            rationale: "Fallback next-step set used because the backend could not refresh the plan.",
+            estimated_minutes: 10,
           };
           try {
-            const backendResult = await requestQuestFromBackend(tabs);
-            goal = backendResult.goal || goal;
-            quest = backendResult.quest || quest;
+            const backendResult = await requestNextStepsFromBackend(tabs, previousState.lastGoal);
+            goal = backendResult.goal || previousState.lastGoal || goal;
+            quest = backendResult;
           } catch (e) {
             console.log("[TabMind] REQUEST_NEXT_QUEST backend failed", e);
+            goal = previousState.lastGoal || goal;
           }
           await setState({
             lastGoal: goal,

@@ -1,7 +1,7 @@
 /**
  * TabMind — Shield prompt on the page.
  * Keeps the current centered Shield prompt, and after Shield Mode is activated
- * turns into a small anchored launcher + in-page right-side panel.
+ * turns into a small anchored launcher + reopenable goals card.
  */
 (function () {
   "use strict";
@@ -21,18 +21,21 @@
     root = document.createElement("div");
     root.id = ROOT_ID;
     root.innerHTML = `
-      <button class="tabmind-launcher" type="button" aria-label="Open TabMind">
-        <img src="${LOGO_URL}" alt="TabMind" />
+      <button class="tabmind-shield-control" type="button" aria-label="Open TabMind goals">
+        <span class="tabmind-shield-control-ring"></span>
+        <span class="tabmind-shield-control-core">
+          <img src="${LOGO_URL}" alt="TabMind" />
+        </span>
       </button>
-      <aside class="tabmind-side-panel" aria-label="TabMind focus panel">
-        <button class="tabmind-side-panel-close" type="button" aria-label="Close TabMind">&times;</button>
-        <iframe class="tabmind-side-panel-frame" src="${PANEL_URL}" title="TabMind"></iframe>
-      </aside>
+      <section class="tabmind-goals-card" aria-label="TabMind goals">
+        <button class="tabmind-goals-card-close" type="button" aria-label="Close TabMind goals">&times;</button>
+        <iframe class="tabmind-goals-card-frame" src="${PANEL_URL}" title="TabMind"></iframe>
+      </section>
     `;
 
-    launcher = root.querySelector(".tabmind-launcher");
-    panel = root.querySelector(".tabmind-side-panel");
-    const closeButton = root.querySelector(".tabmind-side-panel-close");
+    launcher = root.querySelector(".tabmind-shield-control");
+    panel = root.querySelector(".tabmind-goals-card");
+    const closeButton = root.querySelector(".tabmind-goals-card-close");
 
     launcher.addEventListener("click", () => {
       panel.classList.toggle("open");
@@ -69,9 +72,10 @@
     overlay.innerHTML = `
       <div class="tabmind-shield-prompt-backdrop"></div>
       <div class="tabmind-shield-prompt-box" role="dialog" aria-labelledby="tabmind-prompt-title" aria-modal="true">
-        <h2 id="tabmind-prompt-title" class="tabmind-shield-prompt-title">Would you like to enter Shield Mode?</h2>
+        <p class="tabmind-shield-prompt-kicker">Quick detour?</p>
+        <h2 id="tabmind-prompt-title" class="tabmind-shield-prompt-title">Ready to get back to what matters?</h2>
         <div class="tabmind-shield-prompt-actions">
-          <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-accept">Yes, enter Shield Mode</button>
+          <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-accept">Yes! Let's refocus</button>
           <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-dismiss">Not now</button>
         </div>
       </div>
@@ -91,12 +95,9 @@
       acceptBtn.textContent = "Entering Shield Mode...";
       close();
       try {
-        const response = await new Promise((resolve) => {
+        await new Promise((resolve) => {
           chrome.runtime.sendMessage({ type: "ACTIVATE_SHIELD" }, resolve);
         });
-        if (response?.shieldModeActive) {
-          showLauncher({ open: true });
-        }
       } catch (e) {
         console.warn("[TabMind] Shield activate failed", e);
       }
@@ -124,8 +125,8 @@
       showModal();
     }
 
-    if (message?.type === "SHOW_SHIELD_PANEL") {
-      showLauncher({ open: true });
+    if (message?.type === "SHOW_SHIELD_CONTROL") {
+      showLauncher();
     }
   });
 
