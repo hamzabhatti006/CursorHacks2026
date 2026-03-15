@@ -15,10 +15,59 @@ TODO (P2):
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
 
-app = FastAPI(title="TabMind API", version="1.0.0")
+from gemini import (
+    infer_goal,
+    summarize_tabs,
+    generate_quest,
+    next_steps
+)
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class Tab(BaseModel):
+    title: str
+    url: str
+
+
+class TabRequest(BaseModel):
+    tabs: List[Tab]
+    inferred_goal: Optional[str] = None
+    distraction_score: Optional[int] = None
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "tabmind"}
+    return {"status": "ok"}
+
+
+@app.post("/infer-goal")
+def infer_goal_endpoint(data: TabRequest):
+    return infer_goal(data.tabs)
+
+
+@app.post("/summarize-tabs")
+def summarize_tabs_endpoint(data: TabRequest):
+    return summarize_tabs(data.tabs)
+
+
+@app.post("/generate-quest")
+def generate_quest_endpoint(data: TabRequest):
+    return generate_quest(data.tabs, data.inferred_goal)
+
+
+@app.post("/next-steps")
+def next_steps_endpoint(data: TabRequest):
+    return next_steps(data.tabs)
