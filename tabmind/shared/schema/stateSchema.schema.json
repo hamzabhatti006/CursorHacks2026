@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tabmind.local/schema/stateSchema.schema.json",
+  "title": "TabMind Popup State",
+  "description": "Canonical normalized state shape rendered by the TabMind popup UI.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "distractionScore",
+    "focusLabel",
+    "inferredGoal",
+    "shieldModeActive",
+    "quest",
+    "lastNotificationAt"
+  ],
+  "properties": {
+    "distractionScore": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Current distraction score computed by the extension core."
+    },
+    "focusLabel": {
+      "type": "string",
+      "enum": ["low", "drifting", "overloaded"],
+      "default": "low",
+      "description": "Focus state derived from the distraction score."
+    },
+    "inferredGoal": {
+      "type": "string",
+      "default": "",
+      "description": "Popup-facing goal string normalized from backend or background output."
+    },
+    "shieldModeActive": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether Shield Mode is currently active."
+    },
+    "quest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questTitle",
+        "questDescription",
+        "missions",
+        "rationale",
+        "estimatedFocusMinutes"
+      ],
+      "properties": {
+        "questTitle": {
+          "type": "string",
+          "default": "",
+          "description": "Single focused task for the user to complete next."
+        },
+        "questDescription": {
+          "type": "string",
+          "default": "",
+          "description": "Short explanation of the current quest."
+        },
+        "missions": {
+          "type": "array",
+          "default": [],
+          "description": "Ordered checklist items shown in the popup.",
+          "items": {
+            "$ref": "#/$defs/mission"
+          }
+        },
+        "rationale": {
+          "type": "string",
+          "default": "",
+          "description": "Why this quest was selected for the current tab context."
+        },
+        "estimatedFocusMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Suggested focus block duration."
+        }
+      }
+    },
+    "lastNotificationAt": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Timestamp in milliseconds for the last focus nudge."
+    }
+  },
+  "$defs": {
+    "mission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "done"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete mission text the user can act on immediately."
+        },
+        "done": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the mission is marked complete in the popup."
+        }
+      }
+    }
+  }
+}

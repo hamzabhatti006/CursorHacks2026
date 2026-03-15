@@ -10,7 +10,8 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'tabmindState';
+  const CORE_STORAGE_KEY = 'tabmindState';
+  const UI_STORAGE_KEY = 'tabmindPopupState';
   const MESSAGE_TIMEOUT_MS = 1500;
 
   const ui = {};
@@ -37,31 +38,81 @@
     return Math.max(min, Math.min(max, Math.round(number)));
   };
 
+  const normalizeMission = (mission) => {
+    if (typeof mission === 'string' && mission.trim()) {
+      return {
+        text: mission.trim(),
+        done: false
+      };
+    }
+
+    if (!mission || typeof mission !== 'object') {
+      return null;
+    }
+
+    const text = typeof mission.text === 'string' ? mission.text.trim() : '';
+    if (!text) {
+      return null;
+    }
+
+    return {
+      text,
+      done: Boolean(mission.done ?? mission.completed)
+    };
+  };
+
+  const normalizeQuest = (questInput) => {
+    const quest = questInput && typeof questInput === 'object' ? questInput : {};
+    const missions = Array.isArray(quest.missions) ? quest.missions : [];
+
+    return {
+      questTitle: typeof quest.questTitle === 'string'
+        ? quest.questTitle
+        : typeof quest.title === 'string'
+          ? quest.title
+          : typeof quest.quest_title === 'string'
+            ? quest.quest_title
+            : '',
+      questDescription: typeof quest.questDescription === 'string'
+        ? quest.questDescription
+        : typeof quest.summary === 'string'
+          ? quest.summary
+          : typeof quest.description === 'string'
+            ? quest.description
+            : '',
+      missions: missions.map(normalizeMission).filter(Boolean),
+      rationale: typeof quest.rationale === 'string' ? quest.rationale : '',
+      estimatedFocusMinutes: clampNumber(
+        quest.estimatedFocusMinutes ?? quest.estimated_minutes,
+        0,
+        240
+      )
+    };
+  };
+
   const normalizeState = (input) => {
     const source = input && typeof input === 'object' ? input : {};
     const score = clampNumber(source.distractionScore, 0, 12);
     const focusLabel = normalizeFocusLabel(source.focusLabel || labelFromScore(score));
-    const quest = source.quest && typeof source.quest === 'object' ? source.quest : {};
-    const missions = Array.isArray(quest.missions) ? quest.missions : [];
+    const quest = normalizeQuest(source.quest || source.currentQuest);
 
     return {
       distractionScore: score,
       focusLabel,
-      inferredGoal: typeof source.inferredGoal === 'string' ? source.inferredGoal : '',
+      inferredGoal: typeof source.inferredGoal === 'string'
+        ? source.inferredGoal
+        : typeof source.lastGoal === 'string'
+          ? source.lastGoal
+          : typeof source.goal === 'string'
+            ? source.goal
+            : '',
       shieldModeActive: Boolean(source.shieldModeActive),
-      quest: {
-        questTitle: typeof quest.questTitle === 'string' ? quest.questTitle : '',
-        questDescription: typeof quest.questDescription === 'string' ? quest.questDescription : '',
-        missions: missions
-          .filter((mission) => mission && typeof mission.text === 'string' && mission.text.trim())
-          .map((mission) => ({
-            text: mission.text.trim(),
-            done: Boolean(mission.done)
-          })),
-        rationale: typeof quest.rationale === 'string' ? quest.rationale : '',
-        estimatedFocusMinutes: clampNumber(quest.estimatedFocusMinutes, 0, 240)
-      },
-      lastNotificationAt: typeof source.lastNotificationAt === 'number' ? source.lastNotificationAt : 0
+      quest,
+      lastNotificationAt: typeof source.lastNotificationAt === 'number'
+        ? source.lastNotificationAt
+        : typeof source.lastNudgeAt === 'number'
+          ? source.lastNudgeAt
+          : 0
     };
   };
 
@@ -90,9 +141,20 @@
     Boolean(
       value &&
         typeof value === 'object' &&
-        Object.prototype.hasOwnProperty.call(value, 'distractionScore') &&
-        Object.prototype.hasOwnProperty.call(value, 'focusLabel') &&
-        Object.prototype.hasOwnProperty.call(value, 'quest')
+        (
+          (
+            Object.prototype.hasOwnProperty.call(value, 'distractionScore') &&
+            Object.prototype.hasOwnProperty.call(value, 'focusLabel') &&
+            Object.prototype.hasOwnProperty.call(value, 'quest')
+          ) ||
+          (
+            Object.prototype.hasOwnProperty.call(value, 'distractionScore') &&
+            (
+              Object.prototype.hasOwnProperty.call(value, 'currentQuest') ||
+              Object.prototype.hasOwnProperty.call(value, 'lastGoal')
+            )
+          )
+        )
     );
 
   const extractState = (response) => {
@@ -336,7 +398,7 @@
     }
 
     try {
-      await storageSet(STORAGE_KEY, normalizeState(state));
+      await storageSet(UI_STORAGE_KEY, normalizeState(state));
     } catch (error) {
       // If local storage fails, keep the popup responsive and continue rendering in memory.
     }
@@ -356,9 +418,14 @@
     }
 
     try {
-      const stored = await storageGet(STORAGE_KEY);
+      const stored = await storageGet(UI_STORAGE_KEY);
       if (isStateLike(stored)) {
         return stored;
+      }
+
+      const coreState = await storageGet(CORE_STORAGE_KEY);
+      if (isStateLike(coreState)) {
+        return coreState;
       }
 
       const allValues = await storageGet(null);
@@ -446,8 +513,12 @@
         return;
       }
 
-      if (changes[STORAGE_KEY] && changes[STORAGE_KEY].newValue) {
-        renderState(changes[STORAGE_KEY].newValue);
+      if (changes[CORE_STORAGE_KEY] && changes[CORE_STORAGE_KEY].newValue) {
+        renderState(changes[CORE_STORAGE_KEY].newValue);
+      }
+
+      if (changes[UI_STORAGE_KEY] && changes[UI_STORAGE_KEY].newValue) {
+        renderState(changes[UI_STORAGE_KEY].newValue);
       }
     });
   };

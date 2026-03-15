@@ -1,10 +1,12 @@
 # TabMind shared state schema (P3: UX / Product / Demo Lead)
 
-This folder defines the single state contract shared by the extension background, popup, and backend-derived Quest data.
+This folder defines the popup-facing state contract and the compatibility rules that keep the popup aligned with the current extension and backend implementations.
 
 ## Canonical storage shape
 
-`stateSchema.json` is the default object shape the extension should store and return.
+`stateSchema.json` is the canonical normalized popup state example.
+
+`stateSchema.schema.json` is the machine-readable JSON Schema for that normalized popup state.
 
 | Field | Type | Notes |
 |------|------|------|
@@ -36,6 +38,27 @@ Conventions:
 - `done` is controlled by the popup checklist UI and persisted locally.
 - Missions should stay ordered from easiest first move to more committed follow-through.
 
+## Current compatibility layer
+
+The repo currently has two related shapes in flight:
+
+1. Canonical popup state:
+   This is the normalized shape documented in `stateSchema.json` and validated by `stateSchema.schema.json`.
+2. Current extension-core state from P1:
+   This uses fields like `lastGoal`, `currentQuest`, and `lastNudgeAt`.
+
+The popup now normalizes the current core state into the canonical popup shape instead of assuming the core already matches it.
+
+Current core-to-popup mapping:
+
+- `lastGoal` -> `inferredGoal`
+- `currentQuest.title` -> `quest.questTitle`
+- `currentQuest.summary` or `currentQuest.description` -> `quest.questDescription`
+- `currentQuest.missions` string array -> `quest.missions` object array with `{ text, done }`
+- `lastNudgeAt` -> `lastNotificationAt`
+
+This prevents the popup from overwriting or breaking the extension core storage contract while still rendering a stable UI schema.
+
 ## Extension contract
 
 The popup is built around two background message types:
@@ -43,14 +66,16 @@ The popup is built around two background message types:
 - `GET_STATE` -> returns the current full state object, or an envelope containing that object.
 - `ACTIVATE_SHIELD` -> runs Shield Mode, updates storage, and returns the refreshed full state object.
 
-Recommended storage convention for P1:
+Current storage convention:
 
-- Persist the full object at `chrome.storage.local["tabmindState"]`.
-- If P1 prefers separate keys internally, `GET_STATE` should still return the merged full object in the schema shape above.
+- P1 core state lives at `chrome.storage.local["tabmindState"]`.
+- P3 popup-normalized state now lives at `chrome.storage.local["tabmindPopupState"]`.
+
+This split is intentional: it lets the popup persist checklist UI state without stomping on P1's raw background fields.
 
 ## Backend mapping
 
-P2 does not need to return the whole state object. The backend can return goal and quest payloads that P1 merges into extension state:
+P2 does not need to return the whole popup state object. The backend can return goal and quest payloads that P1 merges into extension state:
 
 ```json
 {
@@ -73,6 +98,22 @@ P1 should normalize backend field names into the popup-facing state shape:
 - `quest_title` -> `quest.questTitle`
 - `quest_description` -> `quest.questDescription`
 - `estimated_focus_minutes` -> `quest.estimatedFocusMinutes`
+
+The current background implementation may also pass through quest objects shaped like:
+
+```json
+{
+  "title": "Refocus",
+  "summary": "A short path back into the task.",
+  "missions": [
+    "Open the main work tab",
+    "Identify the next concrete step",
+    "Work on it for 10 minutes"
+  ]
+}
+```
+
+The popup normalization layer accepts that shape too.
 
 ## Fallback behavior
 
