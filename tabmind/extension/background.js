@@ -54,7 +54,29 @@ const FAST_SWITCH_WINDOW_MS = 10 * 1000;
 const FAST_SWITCH_PROMPT_COUNT = 2;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
 const BACKEND_BASE_URL = "http://localhost:8000";
+const PROMPT_COOLDOWN_MS = 5 * 60 * 1000;
 
+let scoreMutexPromise = Promise.resolve();
+
+const withScoreMutex = (fn) => {
+  scoreMutexPromise = scoreMutexPromise.then(fn).catch((err) => {
+    console.error("[TabMind] mutex error", err);
+  });
+  return scoreMutexPromise;
+};
+
+const getLastShieldPromptSentAt = async () => {
+  const state = await getState();
+  return state.lastShieldPromptSentAt ?? 0;
+};
+
+const setLastShieldPromptSentAt = async (ts) => {
+  await setState({ lastShieldPromptSentAt: ts });
+};
+
+// ---------------------------------------------------------------------------
+// Tab switch helpers
+// ---------------------------------------------------------------------------
 const recordRecentSwitch = async () => {
   const state = await getState();
   const now = Date.now();
@@ -79,7 +101,7 @@ const calculateScoreDelta = ({
   recentSwitchCount,
   openTabCount,
 }) => {
-  let delta = 1; // every tab switch adds at least 1 (rapid switching = higher score)
+  let delta = 1; // every tab switch adds at least 1
 
   if (recentSwitchCount >= 2) delta += 1;
   if (recentSwitchCount >= 5) delta += 2;
@@ -103,6 +125,9 @@ const shouldOfferShield = ({
   return false;
 };
 
+// ---------------------------------------------------------------------------
+// Score decay
+// ---------------------------------------------------------------------------
 const decayScore = async () => {
   const state = await getState();
   const cutoff = Date.now() - SWITCH_WINDOW_MS;
@@ -129,56 +154,18 @@ const decayScore = async () => {
   });
 };
 
-const trackTabSwitch = async (activeInfo) => {
-  const activeTab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
-  if (!activeTab) return;
-
-  const recentSwitches = await recordRecentSwitch();
-  const fastSwitchCount = countSwitchesInWindow(
-    recentSwitches,
-    FAST_SWITCH_WINDOW_MS,
-  );
-  const allTabs = await chrome.tabs.query({});
-
-  const isDistraction = isDistractionUrl(activeTab.url);
-  const scoreDelta = calculateScoreDelta({
-    isDistraction,
-    fastSwitchCount,
-    recentSwitchCount: recentSwitches.length,
-    openTabCount: allTabs.length,
-  });
-
-  const state = await getState();
-
-  await setState({
-    lastActiveTabId: activeInfo.tabId,
-    lastActiveAt: Date.now(),
-    distractionScore: state.distractionScore + scoreDelta,
-  });
-
-  const nextState = await getState();
-
-  if (
-    shouldOfferShield({
-      distractionScore: nextState.distractionScore,
-      fastSwitchCount,
-      isDistraction,
-    })
-  ) {
-    const promptShown = await sendShieldPromptToActiveTab();
-    if (!promptShown) {
-      await showNudge();
-    }
-  }
-};
-
-const PROMPT_COOLDOWN_MS = 5 * 60 * 1000;
-let lastShieldPromptSentAt = 0;
+// ---------------------------------------------------------------------------
+// Nudge / shield prompt
+// ---------------------------------------------------------------------------
 
 const sendShieldPromptToActiveTab = async () => {
   const now = Date.now();
-  if (now - lastShieldPromptSentAt < PROMPT_COOLDOWN_MS) return true;
-  lastShieldPromptSentAt = now;
+  const lastSentAt = await getLastShieldPromptSentAt();
+
+  if (now - lastSentAt < PROMPT_COOLDOWN_MS) return true; // still in cooldown
+
+  await setLastShieldPromptSentAt(now);
+
   try {
     const win = await chrome.windows.getLastFocused();
     if (!win?.id) return false;
@@ -198,7 +185,6 @@ const showShieldControlOnWindow = async (windowId) => {
     const tabs = await chrome.tabs.query({ active: true, windowId });
     const activeTab = tabs[0];
     if (!activeTab?.id) return false;
-
     await chrome.tabs.sendMessage(activeTab.id, {
       type: "SHOW_SHIELD_CONTROL",
     });
@@ -208,11 +194,66 @@ const showShieldControlOnWindow = async (windowId) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Tab event handlers
+// ---------------------------------------------------------------------------
+
+const trackTabSwitch = async (activeInfo) => {
+  const earlyState = await getState();
+  if (earlyState.shieldModeActive) return;
+
+  const activeTab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
+  if (!activeTab) return;
+
+  await withScoreMutex(async () => {
+    const recentSwitches = await recordRecentSwitch();
+    const fastSwitchCount = countSwitchesInWindow(
+      recentSwitches,
+      FAST_SWITCH_WINDOW_MS,
+    );
+    const allTabs = await chrome.tabs.query({});
+
+    const isDistraction = isDistractionUrl(activeTab.url);
+    const scoreDelta = calculateScoreDelta({
+      isDistraction,
+      fastSwitchCount,
+      recentSwitchCount: recentSwitches.length,
+      openTabCount: allTabs.length,
+    });
+
+    const state = await getState();
+
+    await setState({
+      lastActiveTabId: activeInfo.tabId,
+      lastActiveAt: Date.now(),
+      distractionScore: state.distractionScore + scoreDelta,
+    });
+
+    const nextState = await getState();
+
+    if (
+      shouldOfferShield({
+        distractionScore: nextState.distractionScore,
+        fastSwitchCount,
+        isDistraction,
+      })
+    ) {
+      const promptShown = await sendShieldPromptToActiveTab();
+      if (!promptShown) {
+        await showNudge();
+      }
+    }
+  });
+};
+
 const trackTabUpdate = async (tabId, changeInfo, tab) => {
-  if (!changeInfo?.url && changeInfo?.status !== "complete") return;
+  if (!changeInfo?.url) return;
+
+  const earlyState = await getState();
+  if (earlyState.shieldModeActive) return;
 
   const allTabs = await chrome.tabs.query({});
-  const isDistraction = isDistractionUrl(changeInfo?.url || tab?.url);
+  const isDistraction = isDistractionUrl(changeInfo.url ?? tab?.url);
 
   let scoreDelta = 0;
   if (isDistraction) scoreDelta += 2;
@@ -220,19 +261,25 @@ const trackTabUpdate = async (tabId, changeInfo, tab) => {
 
   if (scoreDelta === 0) return;
 
-  const state = await getState();
-  await setState({
-    distractionScore: state.distractionScore + scoreDelta,
-  });
+  await withScoreMutex(async () => {
+    const state = await getState();
+    await setState({
+      distractionScore: state.distractionScore + scoreDelta,
+    });
 
-  const nextState = await getState();
-  if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
-    const promptShown = await sendShieldPromptToActiveTab();
-    if (!promptShown) {
-      await showNudge();
+    const nextState = await getState();
+    if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
+      const promptShown = await sendShieldPromptToActiveTab();
+      if (!promptShown) {
+        await showNudge();
+      }
     }
-  }
+  });
 };
+
+// ---------------------------------------------------------------------------
+// Backend requests
+// ---------------------------------------------------------------------------
 
 const requestQuestFromBackend = async (tabs) => {
   const payload = {
@@ -244,9 +291,7 @@ const requestQuestFromBackend = async (tabs) => {
 
   const response = await fetch(`${BACKEND_BASE_URL}/generate-quest`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
@@ -318,9 +363,7 @@ const requestNextStepsFromBackend = async (tabs, lastGoal) => {
 
   const response = await fetch(`${BACKEND_BASE_URL}/next-steps`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
@@ -331,6 +374,10 @@ const requestNextStepsFromBackend = async (tabs, lastGoal) => {
   const data = await response.json();
   return buildQuestFromNextSteps(data, lastGoal);
 };
+
+// ---------------------------------------------------------------------------
+// Shield Mode
+// ---------------------------------------------------------------------------
 
 const activateShieldMode = async () => {
   const tabs = await chrome.tabs.query({});
@@ -385,6 +432,10 @@ const deactivateShieldMode = async () => {
     state,
   };
 };
+
+// ---------------------------------------------------------------------------
+// Event listeners
+// ---------------------------------------------------------------------------
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
   void trackTabSwitch(activeInfo);
@@ -446,10 +497,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.log("[TabMind] REQUEST_NEXT_QUEST backend failed", e);
             goal = previousState.lastGoal || goal;
           }
-          await setState({
-            lastGoal: goal,
-            currentQuest: quest,
-          });
+          await setState({ lastGoal: goal, currentQuest: quest });
           const state = await getState();
           sendResponse({ ok: true, state });
           break;
@@ -457,10 +505,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "RESET_SCORE": {
           const state = await getState();
-          await setState({
-            ...state,
-            distractionScore: 0,
-          });
+          await setState({ ...state, distractionScore: 0 });
           sendResponse({ ok: true });
           break;
         }
@@ -479,6 +524,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+// ---------------------------------------------------------------------------
+// Score decay interval
+// ---------------------------------------------------------------------------
 setInterval(() => {
   void decayScore();
 }, DECAY_INTERVAL_MS);
