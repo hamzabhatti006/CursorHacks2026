@@ -38,8 +38,8 @@ const DISTRACTION_THRESHOLD = 8;
 const DECAY_INTERVAL_MS = 15 * 1000;
 const DECAY_AMOUNT = 1;
 const SWITCH_WINDOW_MS = 60 * 1000;
-const FAST_SWITCH_WINDOW_MS = 12 * 1000;
-const FAST_SWITCH_PROMPT_COUNT = 4;
+const FAST_SWITCH_WINDOW_MS = 10 * 1000;
+const FAST_SWITCH_PROMPT_COUNT = 2;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
 const BACKEND_BASE_URL = "http://localhost:8000";
 
@@ -69,9 +69,9 @@ const calculateScoreDelta = ({
 }) => {
   let delta = 1; // every tab switch adds at least 1 (rapid switching = higher score)
 
-  if (recentSwitchCount >= 3) delta += 1;
+  if (recentSwitchCount >= 2) delta += 1;
   if (recentSwitchCount >= 5) delta += 2;
-  if (fastSwitchCount >= 3) delta += 2;
+  if (fastSwitchCount >= 2) delta += 3;
   if (fastSwitchCount >= 5) delta += 2;
   if (isDistraction) delta += 4;
   if (openTabCount >= 10) delta += 1;
@@ -87,7 +87,7 @@ const shouldOfferShield = ({
 }) => {
   if (distractionScore >= DISTRACTION_THRESHOLD) return true;
   if (fastSwitchCount >= FAST_SWITCH_PROMPT_COUNT) return true;
-  if (isDistraction && fastSwitchCount >= 3) return true;
+  if (isDistraction && fastSwitchCount >= 2) return true;
   return false;
 };
 

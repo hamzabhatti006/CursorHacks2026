@@ -72,10 +72,10 @@
     overlay.innerHTML = `
       <div class="tabmind-shield-prompt-backdrop"></div>
       <div class="tabmind-shield-prompt-box" role="dialog" aria-labelledby="tabmind-prompt-title" aria-modal="true">
-        <p class="tabmind-shield-prompt-kicker">Quick detour?</p>
-        <h2 id="tabmind-prompt-title" class="tabmind-shield-prompt-title">Ready to get back to what matters?</h2>
+        <p class="tabmind-shield-prompt-kicker">Focus shield</p>
+        <h2 id="tabmind-prompt-title" class="tabmind-shield-prompt-title">Do you want to activate Shield Mode?</h2>
         <div class="tabmind-shield-prompt-actions">
-          <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-accept">Yes! Let's refocus</button>
+          <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-accept">Yes, activate Shield Mode</button>
           <button type="button" class="tabmind-shield-prompt-btn tabmind-shield-prompt-dismiss">Not now</button>
         </div>
       </div>

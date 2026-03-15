@@ -28,28 +28,32 @@
   width: min(360px, calc(100vw - 32px));
   padding: 22px 20px 18px;
   margin: 16px;
-  background: rgba(252, 249, 245, 0.98);
-  border: 1px solid rgba(36, 27, 20, 0.08);
-  border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+  background:
+    radial-gradient(circle at top left, rgba(240, 162, 73, 0.15), transparent 42%),
+    linear-gradient(180deg, rgba(35, 29, 23, 0.98), rgba(22, 18, 15, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
 }
 
 .tabmind-shield-prompt-kicker {
   margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #7d6756;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9b8b78;
   text-align: center;
 }
 
 .tabmind-shield-prompt-title {
   margin: 0 0 18px;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #241b14;
+  color: #f6f0e8;
   text-align: center;
-  line-height: 1.18;
+  line-height: 1.22;
 }
 
 .tabmind-shield-prompt-actions {
@@ -74,13 +78,15 @@
 }
 
 .tabmind-shield-prompt-accept {
-  background: linear-gradient(180deg, #5dd36c, #43bd56);
-  color: #f7fff8;
+  background: linear-gradient(135deg, #f0a249, #ffbc68);
+  color: #22180f;
+  box-shadow: 0 12px 24px rgba(240, 162, 73, 0.24);
 }
 
 .tabmind-shield-prompt-dismiss {
-  background: linear-gradient(180deg, #ff655d, #ff544c);
-  color: #fff7f7;
+  background: rgba(255, 255, 255, 0.08);
+  color: #d4c8bb;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tabmind-shield-control {
