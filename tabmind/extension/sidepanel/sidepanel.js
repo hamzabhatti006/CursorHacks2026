@@ -159,24 +159,23 @@
     renderMissions(quest.missions, async (index, checked) => {
       if (!currentQuest.missions[index]) return;
       currentQuest.missions[index].done = checked;
-      const state = await getState();
-      const existingQuest = state?.currentQuest || state?.quest || {};
+      const previousState = await getState();
+      const existingQuest = previousState?.currentQuest || previousState?.quest || {};
       const updatedQuest = {
         ...existingQuest,
         missions: currentQuest.missions,
       };
-      await setState({ currentQuest: updatedQuest });
+      const nextState = await setState({ currentQuest: updatedQuest });
       const completedNow = countCompleted(currentQuest.missions);
       if (total > 0 && completedNow === total) {
         try {
           const response = await sendMessage({ type: "REQUEST_NEXT_QUEST" });
-          const nextState = response?.state ?? (await getState());
-          render(nextState);
+          render(response?.state ?? nextState);
         } catch (e) {
-          render({ ...state, currentQuest: updatedQuest });
+          render(nextState);
         }
       } else {
-        render({ ...state, currentQuest: updatedQuest });
+        render(nextState);
       }
     });
   };

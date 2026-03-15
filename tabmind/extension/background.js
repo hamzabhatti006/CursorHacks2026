@@ -34,11 +34,13 @@
 
 importScripts("storage.js", "blocker.js", "notifications.js");
 
-const DISTRACTION_THRESHOLD = 8;
+const SHIELD_PROMPT_THRESHOLD = 6;
+const NUDGE_THRESHOLD = 7;
 const DECAY_INTERVAL_MS = 15 * 1000;
 const DECAY_AMOUNT = 1;
-const SWITCH_WINDOW_MS = 60 * 1000;
+const SWITCH_WINDOW_MS = 90 * 1000;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
+const MAX_QUEST_TABS = 10;
 const BACKEND_BASE_URL = "http://localhost:8000";
 
 const recordRecentSwitch = async () => {
@@ -59,15 +61,35 @@ const calculateScoreDelta = ({
   recentSwitchCount,
   openTabCount,
 }) => {
-  let delta = 1; // every tab switch adds at least 1 (rapid switching = higher score)
+  let delta = 2; // make tab thrash visible faster during short demos
 
-  if (recentSwitchCount >= 4) delta += 2;
-  if (recentSwitchCount >= 8) delta += 2;
-  if (isDistraction) delta += 4;
-  if (openTabCount >= 10) delta += 1;
-  if (openTabCount >= 15) delta += 1;
+  if (recentSwitchCount >= 3) delta += 2;
+  if (recentSwitchCount >= 5) delta += 2;
+  if (recentSwitchCount >= 8) delta += 1;
+  if (isDistraction) delta += 3;
+  if (openTabCount >= 8) delta += 1;
+  if (openTabCount >= 12) delta += 1;
 
   return delta;
+};
+
+const isQuestContextUrl = (url) => {
+  if (!url) return false;
+  return !(
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("devtools://") ||
+    url.startsWith("about:")
+  );
+};
+
+const getQuestContextTabs = (tabs) => {
+  const filteredTabs = tabs.filter((tab) => isQuestContextUrl(normalizeUrl(tab?.url)));
+  if (filteredTabs.length > 0) {
+    return filteredTabs.slice(0, MAX_QUEST_TABS);
+  }
+
+  return tabs.slice(0, MAX_QUEST_TABS);
 };
 
 const decayScore = async () => {
@@ -112,13 +134,15 @@ const trackTabSwitch = async (activeInfo) => {
 
   const nextState = await getState();
 
-  if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
+  if (nextState.distractionScore >= NUDGE_THRESHOLD) {
     await showNudge();
+  }
+  if (nextState.distractionScore >= SHIELD_PROMPT_THRESHOLD) {
     await sendShieldPromptToActiveTab();
   }
 };
 
-const PROMPT_COOLDOWN_MS = 5 * 60 * 1000;
+const PROMPT_COOLDOWN_MS = 75 * 1000;
 let lastShieldPromptSentAt = 0;
 
 const sendShieldPromptToActiveTab = async () => {
@@ -168,19 +192,25 @@ const trackTabUpdate = async (tabId, changeInfo, tab) => {
   });
 
   const nextState = await getState();
-  if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
+  if (nextState.distractionScore >= NUDGE_THRESHOLD) {
     await showNudge();
+  }
+  if (nextState.distractionScore >= SHIELD_PROMPT_THRESHOLD) {
     await sendShieldPromptToActiveTab();
   }
 };
 
-const requestQuestFromBackend = async (tabs) => {
+const requestQuestFromBackend = async (tabs, inferredGoal = null) => {
+  const questTabs = getQuestContextTabs(tabs);
   const payload = {
-    tabs: tabs.map((tab) => ({
+    tabs: questTabs.map((tab) => ({
       title: tab?.title ?? "",
       url: normalizeUrl(tab?.url),
     })),
   };
+  if (typeof inferredGoal === "string" && inferredGoal.trim()) {
+    payload.inferred_goal = inferredGoal.trim();
+  }
 
   const response = await fetch(`${BACKEND_BASE_URL}/generate-quest`, {
     method: "POST",
@@ -299,8 +329,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "REQUEST_NEXT_QUEST": {
+          const stateBefore = await getState();
           const tabs = await chrome.tabs.query({});
-          let goal = "Continue with your task";
+          let goal = stateBefore.lastGoal || "Continue with your task";
           let quest = {
             title: "Next steps",
             summary: "Your next set of actions.",
@@ -311,17 +342,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             ],
           };
           try {
-            const backendResult = await requestQuestFromBackend(tabs);
+            const backendResult = await requestQuestFromBackend(tabs, stateBefore.lastGoal);
             goal = backendResult.goal || goal;
             quest = backendResult.quest || quest;
           } catch (e) {
             console.log("[TabMind] REQUEST_NEXT_QUEST backend failed", e);
           }
-          await setState({
+          const state = await setState({
             lastGoal: goal,
             currentQuest: quest,
           });
-          const state = await getState();
           sendResponse({ ok: true, state });
           break;
         }

@@ -12,7 +12,8 @@
 
 "use strict";
 
-const NUDGE_COOLDOWN_MS = 5 * 60 * 1000;
+const NUDGE_COOLDOWN_MS = 90 * 1000;
+const NOTIFICATION_ICON_URL = chrome.runtime.getURL("popup/assets/tabmind-logo-large.png");
 
 const canShowNudge = async () => {
   const state = await getState();
@@ -26,7 +27,7 @@ const showNudge = async () => {
   try {
     await chrome.notifications.create({
       type: "basic",
-      iconUrl: "icons/icon128.png",
+      iconUrl: NOTIFICATION_ICON_URL,
       title: "TabMind",
       message:
         "Focus might be slipping. Open TabMind and activate Shield Mode?",

@@ -16,4 +16,6 @@ Chrome Manifest V3 extension: tab monitoring, distraction score, nudge, Shield M
 
 ## Loading in Chrome
 
-`chrome://extensions` → Load unpacked → select the `extension` folder.
+`chrome://extensions` → Load unpacked → select `/Users/omerbhatti/Documents/ZOOTech/tabmind/extension`.
+
+There is no separate build or `dist` folder in this repo. Chrome should be loading the raw files from `tabmind/extension`, and after code changes you should click `Reload` on the unpacked extension so the MV3 service worker and content scripts pick up the latest source.
