@@ -35,6 +35,8 @@
 importScripts("storage.js", "blocker.js", "notifications.js");
 
 const DISTRACTION_THRESHOLD = 8;
+const DECAY_INTERVAL_MS = 15 * 1000;
+const DECAY_AMOUNT = 1;
 const SWITCH_WINDOW_MS = 60 * 1000;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
 const BACKEND_BASE_URL = "http://localhost:8000";
@@ -70,9 +72,21 @@ const calculateScoreDelta = ({
 
 const decayScore = async () => {
   const state = await getState();
-  if (state.distractionScore <= 0) return;
+  const cutoff = Date.now() - SWITCH_WINDOW_MS;
+  const recentSwitches = state.recentSwitches.filter((timestamp) => timestamp >= cutoff);
+
+  if (state.shieldModeActive) {
+    if (recentSwitches.length !== state.recentSwitches.length) {
+      await setState({ recentSwitches });
+    }
+    return;
+  }
+
+  if (state.distractionScore <= 0 && recentSwitches.length === state.recentSwitches.length) return;
+
   await setState({
-    distractionScore: Math.max(0, state.distractionScore - 1),
+    recentSwitches,
+    distractionScore: Math.max(0, state.distractionScore - DECAY_AMOUNT),
   });
 };
 
@@ -122,12 +136,17 @@ const sendShieldPromptToActiveTab = async () => {
   }
 };
 
-const openSidePanelForWindow = async (windowId) => {
-  if (!windowId) return;
+const showShieldPanelOnWindow = async (windowId) => {
+  if (!windowId) return false;
   try {
-    await chrome.sidePanel.open({ windowId });
+    const tabs = await chrome.tabs.query({ active: true, windowId });
+    const activeTab = tabs[0];
+    if (!activeTab?.id) return false;
+
+    await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_SHIELD_PANEL" });
+    return true;
   } catch (e) {
-    console.log("[TabMind] Could not open side panel", e);
+    return false;
   }
 };
 
@@ -268,7 +287,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "ACTIVATE_SHIELD": {
           const result = await activateShieldMode();
-          await openSidePanelForWindow(senderWindowId);
+          await showShieldPanelOnWindow(senderWindowId);
           sendResponse(result);
           break;
         }
@@ -333,4 +352,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 setInterval(() => {
   void decayScore();
-}, 20 * 1000);
+}, DECAY_INTERVAL_MS);

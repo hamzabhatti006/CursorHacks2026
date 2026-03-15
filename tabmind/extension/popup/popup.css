@@ -53,6 +53,14 @@ body[data-focus="overloaded"] {
   --accent-strong: #ffb59f;
 }
 
+body[data-shield-active="true"] #pre-shield-panel,
+body[data-shield-active="true"] #footer-note,
+body[data-shield-active="true"] .quest-description,
+body[data-shield-active="true"] .quest-rationale,
+body[data-shield-active="true"] .status-message {
+  display: none;
+}
+
 .app-shell {
   padding: 18px;
   display: grid;
@@ -318,6 +326,10 @@ h2 {
 .quest-panel {
   display: grid;
   gap: 14px;
+}
+
+body[data-shield-active="true"] .app-shell {
+  padding-top: 14px;
 }
 
 .quest-title {

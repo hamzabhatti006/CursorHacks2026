@@ -280,6 +280,7 @@
   const cacheElements = () => {
     ui.brandLogo = document.getElementById('brand-logo');
     ui.brandTitle = document.getElementById('brand-title');
+    ui.preShieldPanel = document.getElementById('pre-shield-panel');
     ui.shieldBadge = document.getElementById('shield-badge');
     ui.scoreValue = document.getElementById('score-value');
     ui.focusLabel = document.getElementById('focus-label');
@@ -367,15 +368,20 @@
     const progressPercent = totalMissions ? Math.round((completedMissions / totalMissions) * 100) : 0;
 
     document.body.dataset.focus = focusLabel;
+    document.body.dataset.shieldActive = shieldModeActive ? 'true' : 'false';
 
-    ui.scoreValue.textContent = String(distractionScore);
-    ui.focusLabel.textContent = titleCase(focusLabel);
-    ui.focusCaption.textContent = getFocusCaption(focusLabel, distractionScore);
-    ui.scoreMeter.style.width = scorePercent + '%';
+    if (ui.scoreValue) ui.scoreValue.textContent = String(distractionScore);
+    if (ui.focusLabel) ui.focusLabel.textContent = titleCase(focusLabel);
+    if (ui.focusCaption) ui.focusCaption.textContent = getFocusCaption(focusLabel, distractionScore);
+    if (ui.scoreMeter) ui.scoreMeter.style.width = scorePercent + '%';
 
-    ui.shieldBadge.textContent = shieldModeActive ? 'Shield on' : 'Shield off';
-    ui.shieldBadge.dataset.variant = shieldModeActive ? 'active' : 'idle';
-    ui.shieldButtonTitle.textContent = shieldModeActive ? 'Refresh Shield Plan' : 'Activate Shield Mode';
+    if (ui.shieldBadge) {
+      ui.shieldBadge.textContent = shieldModeActive ? 'Shield on' : 'Shield off';
+      ui.shieldBadge.dataset.variant = shieldModeActive ? 'active' : 'idle';
+    }
+    if (ui.shieldButtonTitle) {
+      ui.shieldButtonTitle.textContent = shieldModeActive ? 'Refresh Shield Plan' : 'Activate Shield Mode';
+    }
 
     if (ui.inferredGoal) ui.inferredGoal.textContent = inferredGoal || 'No clear goal inferred yet.';
     ui.questTitle.textContent = quest.questTitle || 'No quest yet';
