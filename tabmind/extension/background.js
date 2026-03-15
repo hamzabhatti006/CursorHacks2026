@@ -34,6 +34,18 @@
 
 importScripts("storage.js", "blocker.js", "notifications.js");
 
+const {
+  getState,
+  setState,
+  resetState,
+  isDistractionUrl,
+  normalizeUrl,
+  getTabsToClose,
+  closeTabs,
+  showNudge,
+  KNOWN_DISTRACTION_HOSTS,
+} = self;
+
 const DISTRACTION_THRESHOLD = 8;
 const DECAY_INTERVAL_MS = 15 * 1000;
 const DECAY_AMOUNT = 1;
@@ -94,7 +106,9 @@ const shouldOfferShield = ({
 const decayScore = async () => {
   const state = await getState();
   const cutoff = Date.now() - SWITCH_WINDOW_MS;
-  const recentSwitches = state.recentSwitches.filter((timestamp) => timestamp >= cutoff);
+  const recentSwitches = state.recentSwitches.filter(
+    (timestamp) => timestamp >= cutoff,
+  );
 
   if (state.shieldModeActive) {
     if (recentSwitches.length !== state.recentSwitches.length) {
@@ -103,7 +117,11 @@ const decayScore = async () => {
     return;
   }
 
-  if (state.distractionScore <= 0 && recentSwitches.length === state.recentSwitches.length) return;
+  if (
+    state.distractionScore <= 0 &&
+    recentSwitches.length === state.recentSwitches.length
+  )
+    return;
 
   await setState({
     recentSwitches,
@@ -116,7 +134,10 @@ const trackTabSwitch = async (activeInfo) => {
   if (!activeTab) return;
 
   const recentSwitches = await recordRecentSwitch();
-  const fastSwitchCount = countSwitchesInWindow(recentSwitches, FAST_SWITCH_WINDOW_MS);
+  const fastSwitchCount = countSwitchesInWindow(
+    recentSwitches,
+    FAST_SWITCH_WINDOW_MS,
+  );
   const allTabs = await chrome.tabs.query({});
 
   const isDistraction = isDistractionUrl(activeTab.url);
@@ -178,7 +199,9 @@ const showShieldControlOnWindow = async (windowId) => {
     const activeTab = tabs[0];
     if (!activeTab?.id) return false;
 
-    await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_SHIELD_CONTROL" });
+    await chrome.tabs.sendMessage(activeTab.id, {
+      type: "SHOW_SHIELD_CONTROL",
+    });
     return true;
   } catch (e) {
     return false;
@@ -237,11 +260,13 @@ const requestQuestFromBackend = async (tabs) => {
     quest: {
       title: data.quest_title ?? "Refocus",
       summary: data.description ?? "A short path back into the task.",
-      missions: Array.isArray(data.missions) ? data.missions : [
-        "Open the main work tab",
-        "Identify the next concrete step",
-        "Work on it for 10 minutes",
-      ],
+      missions: Array.isArray(data.missions)
+        ? data.missions
+        : [
+            "Open the main work tab",
+            "Identify the next concrete step",
+            "Work on it for 10 minutes",
+          ],
       rationale: data.rationale ?? "",
       estimated_minutes: data.estimated_minutes ?? 10,
     },
@@ -249,16 +274,16 @@ const requestQuestFromBackend = async (tabs) => {
 };
 
 const buildQuestFromNextSteps = (payload, lastGoal) => {
-  const missions = (Array.isArray(payload?.next_steps) ? payload.next_steps : payload?.missions)
+  const missions = (
+    Array.isArray(payload?.next_steps) ? payload.next_steps : payload?.missions
+  )
     ?.map((step) => String(step || "").trim())
     .filter(Boolean)
     .slice(0, 5);
 
   return {
     title:
-      payload?.quest_title ||
-      payload?.title ||
-      "Keep the current work moving",
+      payload?.quest_title || payload?.title || "Keep the current work moving",
     summary:
       payload?.description ||
       payload?.summary ||
@@ -274,7 +299,10 @@ const buildQuestFromNextSteps = (payload, lastGoal) => {
     rationale:
       payload?.rationale ||
       "Generated from your remaining work tabs after finishing the previous checklist.",
-    estimated_minutes: Number(payload?.estimated_minutes) > 0 ? Number(payload.estimated_minutes) : 10,
+    estimated_minutes:
+      Number(payload?.estimated_minutes) > 0
+        ? Number(payload.estimated_minutes)
+        : 10,
     goal: payload?.goal || lastGoal || "Continue your current task",
   };
 };
@@ -403,11 +431,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               "Identify the next concrete step",
               "Work on it for 10 minutes",
             ],
-            rationale: "Fallback next-step set used because the backend could not refresh the plan.",
+            rationale:
+              "Fallback next-step set used because the backend could not refresh the plan.",
             estimated_minutes: 10,
           };
           try {
-            const backendResult = await requestNextStepsFromBackend(tabs, previousState.lastGoal);
+            const backendResult = await requestNextStepsFromBackend(
+              tabs,
+              previousState.lastGoal,
+            );
             goal = backendResult.goal || previousState.lastGoal || goal;
             quest = backendResult;
           } catch (e) {
