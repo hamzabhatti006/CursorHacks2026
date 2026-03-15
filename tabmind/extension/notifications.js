@@ -10,7 +10,36 @@
  * - Store lastNotificationAt in extension storage after each nudge; read it before showing.
  */
 
-(function () {
-  'use strict';
-  // P1: implement nudge display and cooldown logic
-})();
+"use strict";
+
+const NUDGE_COOLDOWN_MS = 5 * 60 * 1000;
+
+const canShowNudge = async () => {
+  const state = await getState();
+  return Date.now() - state.lastNudgeAt >= NUDGE_COOLDOWN_MS;
+};
+
+const showNudge = async () => {
+  const allowed = await canShowNudge();
+  if (!allowed) return false;
+
+  try {
+    await chrome.notifications.create({
+      type: "basic",
+      iconUrl: "icons/icon128.png",
+      title: "TabMind",
+      message:
+        "Focus might be slipping. Open TabMind and activate Shield Mode?",
+      priority: 2,
+    });
+
+    await setState({
+      lastNudgeAt: Date.now(),
+    });
+
+    return true;
+  } catch (error) {
+    console.log("[TabMind] notification failed", error);
+    return false;
+  }
+};

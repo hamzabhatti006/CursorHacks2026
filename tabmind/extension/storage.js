@@ -12,7 +12,50 @@
  * - Ensure default values when keys are missing (e.g. score 0, focusLabel "low", empty quest).
  */
 
-(function () {
-  'use strict';
-  // P1: implement getState / setState and key constants
-})();
+"use strict";
+
+const STORAGE_KEY = "tabmindState";
+
+const DEFAULT_STATE = {
+  distractionScore: 0,
+  lastNudgeAt: 0,
+  lastActiveTabId: null,
+  lastActiveAt: 0,
+  recentSwitches: [],
+  shieldModeActive: false,
+  currentQuest: null,
+  lastGoal: null,
+  blockedHosts: [],
+};
+
+const getState = async () => {
+  const result = await chrome.storage.local.get(STORAGE_KEY);
+  const savedState = result?.[STORAGE_KEY];
+
+  return {
+    ...DEFAULT_STATE,
+    ...(savedState || {}),
+  };
+};
+
+const setState = async (partial) => {
+  const currentState = await getState();
+  const nextState = {
+    ...currentState,
+    ...partial,
+  };
+
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: nextState,
+  });
+
+  return nextState;
+};
+
+const resetState = async () => {
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: { ...DEFAULT_STATE },
+  });
+
+  return { ...DEFAULT_STATE };
+};
