@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TabMind — Your focus</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <main class="sidepanel-app">
+    <section class="quest-section" id="quest-section">
+      <h1 id="quest-title" class="quest-title">No quest yet</h1>
+      <p id="quest-description" class="quest-description">Activate Shield using the shield button on any tab to get your focus plan.</p>
+      <p id="quest-rationale" class="quest-rationale" aria-hidden="true"></p>
+      <div class="progress-row">
+        <span id="progress-copy" class="progress-copy">0 of 0 complete</span>
+        <span id="focus-minutes" class="focus-minutes"></span>
+      </div>
+      <ul id="missions-list" class="missions-list" aria-label="Goals"></ul>
+    </section>
+    <section class="empty-state" id="empty-state">
+      <p>Shield is off. Click the shield on any tab to close distraction tabs and get your goals.</p>
+    </section>
+  </main>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

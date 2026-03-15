@@ -13,6 +13,7 @@
   const CORE_STORAGE_KEY = 'tabmindState';
   const UI_STORAGE_KEY = 'tabmindPopupState';
   const MESSAGE_TIMEOUT_MS = 1500;
+  const SHIELD_REQUEST_TIMEOUT_MS = 20000;
 
   const ui = {};
 
@@ -235,7 +236,7 @@
       });
     });
 
-  const sendMessage = (payload) =>
+  const sendMessage = (payload, timeoutMs = MESSAGE_TIMEOUT_MS) =>
     new Promise((resolve, reject) => {
       if (!chrome.runtime || !chrome.runtime.sendMessage) {
         reject(new Error('Runtime messaging is unavailable.'));
@@ -249,7 +250,7 @@
         }
         settled = true;
         reject(new Error('Timed out waiting for background response.'));
-      }, MESSAGE_TIMEOUT_MS);
+      }, timeoutMs);
 
       try {
         chrome.runtime.sendMessage(payload, (response) => {
@@ -376,7 +377,7 @@
     ui.shieldBadge.dataset.variant = shieldModeActive ? 'active' : 'idle';
     ui.shieldButtonTitle.textContent = shieldModeActive ? 'Refresh Shield Plan' : 'Activate Shield Mode';
 
-    ui.inferredGoal.textContent = inferredGoal || 'No clear goal inferred yet.';
+    if (ui.inferredGoal) ui.inferredGoal.textContent = inferredGoal || 'No clear goal inferred yet.';
     ui.questTitle.textContent = quest.questTitle || 'No quest yet';
     ui.questDescription.textContent =
       quest.questDescription || 'Activate Shield Mode to trim distractions and get a clean next step.';
@@ -451,7 +452,26 @@
     currentState = normalizeState(currentState);
     await writeStoredState(currentState);
     renderState(currentState);
-    setStatus('Progress saved locally in the popup.', 'success');
+    setStatus('Progress saved.', 'success');
+
+    const completed = countCompleted(currentState.quest.missions);
+    const total = currentState.quest.missions.length;
+    if (total > 0 && completed === total) {
+      setStatus('All done! Fetching next steps...', 'neutral');
+      setButtonBusy(true);
+      try {
+        const response = await sendMessage({ type: 'REQUEST_NEXT_QUEST' }, SHIELD_REQUEST_TIMEOUT_MS);
+        const extracted = extractState(response);
+        if (extracted) {
+          await writeStoredState(extracted);
+          renderState(extracted);
+          setStatus('Next set of goals loaded.', 'success');
+        }
+      } catch (err) {
+        setStatus('Could not load next steps. Try activating Shield again.', 'warning');
+      }
+      setButtonBusy(false);
+    }
   };
 
   const activateShieldMode = async () => {
@@ -459,23 +479,25 @@
     setStatus('Activating Shield Mode...', 'neutral');
 
     try {
-      const runtimeState = await sendMessage({ type: 'ACTIVATE_SHIELD' });
+      const runtimeState = await sendMessage({ type: 'ACTIVATE_SHIELD' }, SHIELD_REQUEST_TIMEOUT_MS);
       const extractedState = extractState(runtimeState);
 
       if (extractedState) {
         await writeStoredState(extractedState);
         renderState(extractedState);
         setStatus('Shield Mode activated and refreshed from live state.', 'success');
-        return;
+      } else {
+        const previewState = buildPreviewShieldState(currentState);
+        await writeStoredState(previewState);
+        renderState(previewState);
+        setStatus('Preview quest loaded. P1 still needs to wire the live Shield action.', 'warning');
       }
     } catch (error) {
-      // Fall through to the preview update below so the popup stays usable in demos.
+      const previewState = buildPreviewShieldState(currentState);
+      await writeStoredState(previewState);
+      renderState(previewState);
+      setStatus('Preview quest loaded. P1 still needs to wire the live Shield action.', 'warning');
     }
-
-    const previewState = buildPreviewShieldState(currentState);
-    await writeStoredState(previewState);
-    renderState(previewState);
-    setStatus('Preview quest loaded. P1 still needs to wire the live Shield action.', 'warning');
     setButtonBusy(false);
   };
 

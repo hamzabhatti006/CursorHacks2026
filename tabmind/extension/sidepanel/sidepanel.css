@@ -1,0 +1,140 @@
+/**
+ * TabMind — Side panel: goals only (no score, no icon).
+ */
+:root {
+  --bg: #171510;
+  --bg-elevated: rgba(37, 31, 24, 0.92);
+  --text: #f6f0e8;
+  --muted: #c1b5a3;
+  --soft: #8a7d6d;
+  --accent: #f0a249;
+  --success: #74c69d;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.sidepanel-app {
+  padding: 16px;
+  min-height: 100%;
+}
+
+.quest-section {
+  display: block;
+}
+
+.quest-section.hidden {
+  display: none;
+}
+
+.empty-state {
+  display: none;
+  padding: 16px 0;
+}
+
+.empty-state.visible {
+  display: block;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.quest-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.quest-description {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.quest-rationale {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--soft);
+}
+
+.quest-rationale[aria-hidden="true"] {
+  display: none;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.focus-minutes {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.missions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mission-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+}
+
+.mission-item input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.mission-item .mission-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.mission-item.is-done .mission-text {
+  color: var(--success);
+  text-decoration: line-through;
+}
+
+.mission-empty {
+  color: var(--soft);
+  font-size: 13px;
+  padding: 12px 0;
+}

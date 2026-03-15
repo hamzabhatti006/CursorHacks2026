@@ -3,11 +3,22 @@
   "name": "TabMind",
   "version": "1.0.0",
   "description": "Focus shield: detect distraction, clear noise, one clear next step.",
-  "permissions": ["tabs", "storage", "notifications", "alarms"],
+  "permissions": ["tabs", "storage", "notifications", "alarms", "sidePanel"],
   "host_permissions": ["<all_urls>", "http://localhost:8000/*"],
   "background": { "service_worker": "background.js" },
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "TabMind"
-  }
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/shield-overlay.js"],
+      "css": ["content/shield-overlay.css"],
+      "run_at": "document_idle"
+    }
+  ]
 }

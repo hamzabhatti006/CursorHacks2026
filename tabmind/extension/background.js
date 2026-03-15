@@ -34,7 +34,7 @@
 
 importScripts("storage.js", "blocker.js", "notifications.js");
 
-const DISTRACTION_THRESHOLD = 12;
+const DISTRACTION_THRESHOLD = 8;
 const SWITCH_WINDOW_MS = 60 * 1000;
 const MAX_RECENT_SWITCHES_TRACKED = 50;
 const BACKEND_BASE_URL = "http://localhost:8000";
@@ -57,12 +57,13 @@ const calculateScoreDelta = ({
   recentSwitchCount,
   openTabCount,
 }) => {
-  let delta = 0;
+  let delta = 1; // every tab switch adds at least 1 (rapid switching = higher score)
 
-  if (recentSwitchCount >= 6) delta += 2;
-  if (recentSwitchCount >= 10) delta += 1;
-  if (isDistraction) delta += 3;
-  if (openTabCount >= 12) delta += 1;
+  if (recentSwitchCount >= 4) delta += 2;
+  if (recentSwitchCount >= 8) delta += 2;
+  if (isDistraction) delta += 4;
+  if (openTabCount >= 10) delta += 1;
+  if (openTabCount >= 15) delta += 1;
 
   return delta;
 };
@@ -70,7 +71,6 @@ const calculateScoreDelta = ({
 const decayScore = async () => {
   const state = await getState();
   if (state.distractionScore <= 0) return;
-
   await setState({
     distractionScore: Math.max(0, state.distractionScore - 1),
   });
@@ -100,6 +100,34 @@ const trackTabSwitch = async (activeInfo) => {
 
   if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
     await showNudge();
+    await sendShieldPromptToActiveTab();
+  }
+};
+
+const PROMPT_COOLDOWN_MS = 5 * 60 * 1000;
+let lastShieldPromptSentAt = 0;
+
+const sendShieldPromptToActiveTab = async () => {
+  const now = Date.now();
+  if (now - lastShieldPromptSentAt < PROMPT_COOLDOWN_MS) return;
+  lastShieldPromptSentAt = now;
+  try {
+    const win = await chrome.windows.getLastFocused();
+    if (!win?.id) return;
+    const tabs = await chrome.tabs.query({ active: true, windowId: win.id });
+    const tab = tabs[0];
+    if (tab?.id) await chrome.tabs.sendMessage(tab.id, { type: "SHOW_SHIELD_PROMPT" });
+  } catch (e) {
+    /* tab may not have content script ready or not injectable */
+  }
+};
+
+const openSidePanelForWindow = async (windowId) => {
+  if (!windowId) return;
+  try {
+    await chrome.sidePanel.open({ windowId });
+  } catch (e) {
+    console.log("[TabMind] Could not open side panel", e);
   }
 };
 
@@ -123,6 +151,7 @@ const trackTabUpdate = async (tabId, changeInfo, tab) => {
   const nextState = await getState();
   if (nextState.distractionScore >= DISTRACTION_THRESHOLD) {
     await showNudge();
+    await sendShieldPromptToActiveTab();
   }
 };
 
@@ -209,10 +238,11 @@ const deactivateShieldMode = async () => {
     shieldModeActive: false,
     blockedHosts: [],
   });
-
+  const state = await getState();
   return {
     ok: true,
     shieldModeActive: false,
+    state,
   };
 };
 
@@ -225,7 +255,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  void sender;
+  const senderWindowId = sender?.tab?.windowId;
 
   void (async () => {
     try {
@@ -238,6 +268,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "ACTIVATE_SHIELD": {
           const result = await activateShieldMode();
+          await openSidePanelForWindow(senderWindowId);
           sendResponse(result);
           break;
         }
@@ -245,6 +276,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case "DEACTIVATE_SHIELD": {
           const result = await deactivateShieldMode();
           sendResponse(result);
+          break;
+        }
+
+        case "REQUEST_NEXT_QUEST": {
+          const tabs = await chrome.tabs.query({});
+          let goal = "Continue with your task";
+          let quest = {
+            title: "Next steps",
+            summary: "Your next set of actions.",
+            missions: [
+              "Open the main work tab",
+              "Identify the next concrete step",
+              "Work on it for 10 minutes",
+            ],
+          };
+          try {
+            const backendResult = await requestQuestFromBackend(tabs);
+            goal = backendResult.goal || goal;
+            quest = backendResult.quest || quest;
+          } catch (e) {
+            console.log("[TabMind] REQUEST_NEXT_QUEST backend failed", e);
+          }
+          await setState({
+            lastGoal: goal,
+            currentQuest: quest,
+          });
+          const state = await getState();
+          sendResponse({ ok: true, state });
           break;
         }
 
@@ -274,4 +333,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 setInterval(() => {
   void decayScore();
-}, 30 * 1000);
+}, 20 * 1000);
