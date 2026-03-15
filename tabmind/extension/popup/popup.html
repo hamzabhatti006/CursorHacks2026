@@ -7,28 +7,94 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- P3 (UX / Product / Demo Lead): build popup UI. Structure below is a starter; wire IDs in popup.js. -->
-  <header class="header">
-    <h1>TabMind</h1>
-    <!-- TODO (P3): distraction score + focus label (low / drifting / overloaded) -->
-    <div id="score-row" class="score-row"></div>
-  </header>
-  <section class="goal-section">
-    <h2>Inferred goal</h2>
-    <p id="inferred-goal" class="inferred-goal">—</p>
-  </section>
-  <section class="shield-section">
-    <!-- TODO (P3): big "Activate Shield Mode" button; on click send ACTIVATE_SHIELD to background -->
-    <button id="shield-btn" class="shield-btn">Activate Shield Mode</button>
-  </section>
-  <section class="quest-section">
-    <h2>Quest</h2>
-    <p id="quest-title" class="quest-title">—</p>
-    <!-- TODO (P3): mission checklist (from state.quest.missions); checkboxes update storage + progress -->
-    <ul id="missions-list" class="missions-list"></ul>
-    <!-- TODO (P3): progress bar reflecting completed missions / total -->
-    <div id="progress-bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-  </section>
+  <main class="app-shell">
+    <section class="panel hero-panel">
+      <div class="panel-header">
+        <div class="brand-lockup">
+          <p class="eyebrow">Focus shield</p>
+          <img
+            id="brand-logo"
+            class="brand-logo"
+            src="assets/tabmind-logo-large.png"
+            alt="TabMind logo"
+          />
+          <h1 id="brand-title" class="brand-title">TabMind</h1>
+        </div>
+        <span id="shield-badge" class="badge" data-variant="idle">Shield off</span>
+      </div>
+
+      <div class="hero-grid">
+        <div class="score-card">
+          <p class="section-label">Distraction score</p>
+          <div class="score-row">
+            <span id="score-value" class="score-value">0</span>
+            <div class="score-copy">
+              <p id="focus-label" class="focus-label">Low</p>
+              <p id="focus-caption" class="focus-caption">Clear enough to keep moving.</p>
+            </div>
+          </div>
+          <div class="meter-track" aria-hidden="true">
+            <div id="score-meter" class="meter-fill"></div>
+          </div>
+        </div>
+
+        <button id="shield-btn" class="shield-btn" type="button">
+          <span id="shield-btn-title" class="button-title">Activate Shield Mode</span>
+          <span class="button-subtitle">Clear noisy tabs and generate one next step</span>
+        </button>
+      </div>
+
+      <p id="status-message" class="status-message" aria-live="polite"></p>
+    </section>
+
+    <section class="panel goal-panel">
+      <div class="section-head">
+        <p class="section-label">Likely goal</p>
+      </div>
+      <p id="inferred-goal" class="inferred-goal">Waiting for tab context...</p>
+    </section>
+
+    <section class="panel quest-panel">
+      <div class="section-head">
+        <div>
+          <p class="section-label">Current quest</p>
+          <h2 id="quest-title" class="quest-title">No quest yet</h2>
+        </div>
+        <span id="focus-minutes" class="meta-pill">0 min</span>
+      </div>
+
+      <p id="quest-description" class="quest-description">
+        Activate Shield Mode to trim distractions and turn your current tabs into one focused plan.
+      </p>
+
+      <p id="quest-rationale" class="quest-rationale">
+        TabMind keeps the UI calm: one goal, one quest, and a few small actions.
+      </p>
+
+      <div class="progress-wrap">
+        <div class="progress-head">
+          <span class="section-label">Progress</span>
+          <span id="progress-copy" class="progress-copy">0 of 0 missions complete</span>
+        </div>
+        <div
+          id="progress-bar"
+          class="progress-bar"
+          role="progressbar"
+          aria-valuenow="0"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <ul id="missions-list" class="missions-list" aria-label="Quest missions"></ul>
+    </section>
+
+    <footer class="footer-note">
+      <p>From tab chaos to one clear next step.</p>
+    </footer>
+  </main>
   <script src="popup.js"></script>
 </body>
 </html>
