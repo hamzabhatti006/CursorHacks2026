@@ -84,7 +84,8 @@ body[data-focus="overloaded"] {
 
 .brand-lockup {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  justify-items: start;
 }
 
 .eyebrow,
@@ -111,10 +112,12 @@ h1 {
 
 .brand-logo {
   display: block;
-  width: min(220px, 100%);
+  width: 112px;
+  max-width: 112px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgba(240, 162, 73, 0.22));
+  margin-top: -2px;
+  filter: drop-shadow(0 6px 14px rgba(240, 162, 73, 0.18));
 }
 
 .brand-logo.is-hidden,
