@@ -82,6 +82,11 @@ body[data-focus="overloaded"] {
   gap: 12px;
 }
 
+.brand-lockup {
+  display: grid;
+  gap: 6px;
+}
+
 .eyebrow,
 .section-label {
   margin: 0 0 6px;
@@ -97,10 +102,24 @@ p {
   margin: 0;
 }
 
+.brand-title,
 h1 {
   font-size: 28px;
   line-height: 1;
   letter-spacing: -0.03em;
+}
+
+.brand-logo {
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(240, 162, 73, 0.22));
+}
+
+.brand-logo.is-hidden,
+.brand-title.is-hidden {
+  display: none;
 }
 
 h2 {

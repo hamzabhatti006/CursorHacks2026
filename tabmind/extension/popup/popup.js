@@ -215,6 +215,8 @@
     });
 
   const cacheElements = () => {
+    ui.brandLogo = document.getElementById('brand-logo');
+    ui.brandTitle = document.getElementById('brand-title');
     ui.shieldBadge = document.getElementById('shield-badge');
     ui.scoreValue = document.getElementById('score-value');
     ui.focusLabel = document.getElementById('focus-label');
@@ -411,6 +413,26 @@
   };
 
   const bindEvents = () => {
+    if (ui.brandLogo) {
+      ui.brandLogo.addEventListener('load', () => {
+        ui.brandLogo.classList.remove('is-hidden');
+        ui.brandTitle.classList.add('is-hidden');
+      });
+
+      ui.brandLogo.addEventListener('error', () => {
+        ui.brandLogo.classList.add('is-hidden');
+        ui.brandTitle.classList.remove('is-hidden');
+      });
+
+      if (ui.brandLogo.complete) {
+        if (ui.brandLogo.naturalWidth > 0) {
+          ui.brandTitle.classList.add('is-hidden');
+        } else {
+          ui.brandLogo.classList.add('is-hidden');
+        }
+      }
+    }
+
     ui.shieldButton.addEventListener('click', activateShieldMode);
   };
 
